@@ -1,38 +1,53 @@
 import requests
-import nltk
+import csv
+import time
 
-from nltk import RegexpParser
-from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
-from nltk.tokenize import word_tokenize
+import numpy as np
 
-from nltk.tag.stanford import StanfordPOSTagger
+# Read and update csv file words based on sentiment
+class Network(object):
+
+  def __init__(self, wordsFile):
+    self.ids = []
+    self.EXC_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+
+  def tanh(self, x):
+    return (np.exp(x) - np.exp(-x)/(np.exp(x) + np.exp(-x)))
+
+  def valueSentiments(self):
+    sentiments = requests.get("http://localhost:5000/api/v1/sentiments").json()
+    words = requests.get("http://localhost:5000/api/v1/words").json()
+
+    for sent in sentiments:
+      if not sent["id"] in self.ids:
+        self.ids.append(sent["id"])
+        for word in sent["content"].split(" "):
+          isWord = requests.get(f"http://localhost:5000/api/v1/words?word={word}").json()
+          if len(isWord) > 0:
+            newWeight = self.tanh(int(isWord[0]["weight"]) + self.tanh(0.05)) # tanh(old_price + tanh(price_change))
+            
+            r = requests.patch(f"http://localhost:5000/api/v1/words", data = {
+              "word": word.lower(),
+              "weight": newWeight
+            })
+          else:
+            r = requests.post(f"http://localhost:5000/api/v1/words", data = {
+              "word": word.lower()
+            })
+            
+
+  def getPrice(self):
+    r = requests.get(self.EXC_API_URL)
+    return r.json()["bitcoin"]["usd"]
+
+  def run(self):
+    # for i in self.sentiments:
+    #   self.valueSentiment(i)
+    self.valueSentiments()
 
 if __name__ == "__main__":
-  sentiment0 = """$BTC.X This will crash in short term. am bullish long run."""
-  sentiment1 = """$BTC.X will rally to $60k!"""
-
-  porter = PorterStemmer()
-
-  with open("bear.txt", "r") as f:
-    bearish = [line.replace("\n", "") for line in f.readlines()]      
-
-  with open("bull.txt", "r") as f:
-    bullish = [line.replace("\n", "") for line in f.readlines()]      
-
-  # sentFiltered = [word for word in sentiment1.split() if word not in stopwords.words('english')]
-  # print(sentFiltered)
-
-  st = StanfordPOSTagger(model_filename="/home/lan/stanford-postagger/models/english-bidirectional-distsim.tagger", path_to_jar="/home/lan/stanford-postagger/stanford-postagger.jar")
-
-  sentTokens = word_tokenize(" ".join(sentiment1.split(" ")))
-  sentTagged = st.tag(sentTokens)
-
-  chunkPattern = """Chunk: {<NNP><RB>}"""
-
-  chunker = RegexpParser(chunkPattern)
-  output = chunker.parse(sentTagged)
-  output.draw()
+  nn = Network(wordsFile="words.csv")
+  nn.run()
 
 # sentiments = requests.get("http://localhost:5000/api/v1/sentiments")
 # for sent in sentiments.json():
