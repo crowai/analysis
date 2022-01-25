@@ -19,7 +19,9 @@ class Network(object):
     return np.tanh(o + rot/frq)
 
   def analyzeSentiments(self):
-    print("[/] Running sentiment analyzer")
+    """
+    Advanced sentiment analysis that breaks down sentiments into words to determine sentiment and sentiment accuracy.
+    """
     while True:
       sentiments = requests.get(self.CROW_API_URL + "sentiments?parsed=true").json()
 
@@ -42,7 +44,6 @@ class Network(object):
 
   def parseSentiments(self):
     while True:
-      print("[/] Running sentiment parser")
       sentiments = requests.get(self.CROW_API_URL + "sentiments?parsed=false").json()
 
       for sent in sentiments:
