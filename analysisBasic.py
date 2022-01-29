@@ -1,6 +1,8 @@
 import requests
 import math
+import csv
 from datetime import timedelta, datetime
+import time
 
 API_URL = "http://165.227.203.180"
 
@@ -17,13 +19,20 @@ def helper(data):
   for i in data:
     d.append(datetime.strptime(i["date"][:-7], "%Y-%m-%dT%H:%M:%S"))
 
-  sorted = sort(d, 30)
+  sorted = sort(d, 1440)
 
   x = []
   for i in sorted:
     x.append(len(i))
 
   return x
+
+def getClosePrice(date):
+  r = requests.get(f"https://api.coingecko.com/api/v3/coins/bitcoin/history?date={date}")
+  data = r.json()
+  closePrice = data["market_data"]["current_price"]["usd"]
+
+  return closePrice
 
 def analyzeInts(data, ints):
   c = 0
@@ -38,8 +47,24 @@ def analyzeInts(data, ints):
         
       c += 1
 
-    print(bearish, bullish)    
-
+    with open("data.csv", "a+") as f:
+      writer = csv.writer(f)
+      day = datetime.strptime(data[c-1]["date"][:-7], "%Y-%m-%dT%H:%M:%S")
+      time.sleep(2)
+      dayBeforePrice = getClosePrice(f"{(day - timedelta(days=1)).day}-{(day - timedelta(days=1)).month}-{(day - timedelta(days=1)).year}")
+      price = getClosePrice(f"{day.day}-{day.month}-{day.year}")
+      writer.writerow(
+        [
+          bearish, ## N of bearish sentiemnts
+          bullish, ## N of bullish sentiments
+          (bearish/bullish), ## N bearish:bullish ratio
+          day, ## Datetime of sentiment range
+          dayBeforePrice, ## Closing price that day
+          price ## Closing price that day
+        ]
+      )
+    print(f"Interval {i} successfully written.")
+    time.sleep(10)
 
 def sort(data,interval): ## Written by PharingWell
   intervals = []
